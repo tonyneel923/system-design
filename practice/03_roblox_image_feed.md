@@ -15,10 +15,10 @@
 
 ### Candidate Original Whiteboard Sketches
 
-![Candidate Final Whiteboard Sketch & Side Notes](file:///Users/aneel/personal-projects/system-design/practice/assets/03_roblox_image_feed_sketch_v2.png)
+![Candidate Final Whiteboard Sketch & Side Notes](./assets/03_roblox_image_feed_sketch_v2.png)
 
 *Initial Component Sketch (v1)*:
-![Candidate Initial Component Sketch](file:///Users/aneel/personal-projects/system-design/practice/assets/03_roblox_image_feed_sketch_v1.png)
+![Candidate Initial Component Sketch](./assets/03_roblox_image_feed_sketch_v1.png)
 
 ### Candidate Whiteboard Architecture & Side Notes (Mermaid Translation)
 
