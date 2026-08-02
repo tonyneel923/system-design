@@ -30,8 +30,11 @@ Real 45-minute mock interview runs complete with candidate whiteboard sketch eva
    - 4-tier browser storage matrix (JS Heap vs IndexedDB vs Cache API vs Web Storage), Service Worker caching strategies, and complete TypeScript `OutboxSyncEngine` implementation.
 4. **[03: Infinite List Virtualization & Image Lifecycle Engineering](./lessons/03_infinite_list_virtualization_and_image_lifecycle.md)**
    - Virtualization layout comparison (padding vs `translate3d` vs recycled DOM pools), dynamic height prefix-sum offset math, zero-flicker scroll sync, and React code examples.
+5. **[04: Memory-Bound Architecture, Idle Scheduling & Zero-Copy Web Workers](./lessons/04_client_memory_management_and_idle_scheduling.md)**
+   - Strict <30MB heap ceilings, Safari `requestIdleCallback` polyfill (`MessageChannel` + 16.6ms budget check), $O(1)$ zero-copy Web Worker transfers, object pooling, and Blob URL leak prevention.
 
 ---
+
 
 ## 🏢 Industry Tech Blog Case Studies (`eng_blogs/`)
 

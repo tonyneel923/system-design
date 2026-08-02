@@ -149,6 +149,9 @@
 | **Blind Fling Image Requests** | Rapid scrolling triggers 30+ image fetches that saturate HTTP/2 sockets and block API calls. | Attach `AbortController` to `IntersectionObserver` exit callbacks and pause prefetching when scroll velocity $v > \text{threshold}$. |
 | **Layout Shift on Upstream Resize** | Items above the visible viewport resizing cause jarring visual scroll jumps for the user. | Synchronously adjust `container.scrollTop += ΔH` inside `useLayoutEffect` before browser paint. |
 | **Random Item Store Eviction** | Evicting single items from memory breaks cursor pagination continuity. | Evict in discrete **page chunks** to IndexedDB via a `StorageController` abstraction layer. |
+| **Un-polyfilled `requestIdleCallback`** | Calling bare `requestIdleCallback` crashes or fails silently in Safari/WebKit. | Use `CrossBrowserIdleScheduler` with `MessageChannel` macro-task fallback and 16.6ms frame budget tracking. |
+| **Worker Structured Clone Overhead** | `worker.postMessage(data)` deep-copies objects, doubling memory usage and causing CPU copy lag. | Use Transferable Objects (`ArrayBuffer`, `ImageBitmap`) for $O(1)$ zero-copy memory ownership transfers. |
+| **Un-revoked Blob URLs** | `URL.createObjectURL(blob)` holds strong references in memory indefinitely. | Invoke `URL.revokeObjectURL(blobUrl)` immediately upon image load or component unmount. |
 
 ---
 
