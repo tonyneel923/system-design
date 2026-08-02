@@ -239,3 +239,112 @@ export function monitorHeapUsage(): void {
 | **Metadata Caching** | `WeakMap<Element, Metadata>` | Standard `Map<string, Metadata>` | `WeakMap` allows key elements to be garbage-collected automatically when unmounted from the DOM. |
 | **Media Blob Memory** | Instant `URL.revokeObjectURL(url)` on load | Leaving Blob URLs to browser unload | Un-revoked Blob URLs hold memory references indefinitely, causing severe mobile OOM crashes. |
 | **GC Prevention** | Object Pooling for high-frequency DTOs | Instantiating new `{}` objects per frame | Pre-allocated object pools eliminate V8 Scavenger GC pauses during fast scrolling. |
+| **Memory Allocation Tracking** | $O(1)$ Slot-Based Weighted Estimation | $O(N)$ Recursive Deep Byte Traversal | Deep object traversal causes main-thread CPU lag and fails to detect GPU bitmap decode memory. |
+
+---
+
+## Part 6: Explicit Byte Calculation vs. Slot-Based Weighted Estimation & The GPU Bitmap Trap
+
+### **1. Why Explicit Deep Byte Calculation (`JSON.stringify` / Object Walking) is an Anti-Pattern**
+
+When attempting to keep a store under a strict memory cap (e.g. 30MB), candidates often propose recursively traversing JS objects or calling `JSON.stringify(obj).length * 2` on every write.
+
+```
+                  RECURSIVE OBJECT TREE TRAVERSAL (ANTI-PATTERN)
+State Write ---> Traverse Object Keys ---> Calculate String Lengths ---> O(N) CPU Lag & Jank!
+```
+
+- **Main Thread CPU Lag**: Running recursive $O(N)$ tree traversals on hot write paths (e.g., during active scrolling or high-frequency WebSocket streams) blocks the main thread, causing frame drops.
+- **Engine False Precision**: V8 and JavaScriptCore use internal optimizations (hidden classes, inline caches, string interning, and pointer compression). A JS object's actual V8 heap memory footprint does not map 1-to-1 with `JSON.stringify` length.
+
+### **2. The Image GPU Bitmap Decoding Trap**
+
+The most dangerous flaw of explicit JS object byte calculators is that **they are completely blind to image decompression memory**.
+
+```
+JS HEAP MEMORY                                 BROWSER RASTER / GPU MEMORY
++-------------------------------+              +----------------------------------------------+
+| Post Object:                  |              | Decoded Image Bitmap:                        |
+| imageUrl: "https://.../a.jpg" |  (Rendered   | Width (4000px) x Height (3000px) x 4 bytes   |
+| (JS Memory Size: ~50 Bytes)   |  in DOM)     | = 48,000,000 Bytes (48MB GPU RAM!)          |
++-------------------------------+ ------------> +----------------------------------------------+
+```
+
+- In JS heap memory, a 2MB compressed JPEG URL string takes up only ~50 bytes.
+- When rendered into the DOM, the browser engine decodes the compressed JPEG into an **uncompressed RGBA Bitmap**:
+  $$\text{Decoded Bitmap RAM} = \text{Width} \times \text{Height} \times 4\text{ bytes}$$
+- **A single $4000 \times 3000$ camera photo consumes 48MB of uncompressed GPU/RAM memory!** An explicit JS byte calculator thinks the store is using 50 bytes, while the browser crashes with an Out-of-Memory (OOM) error.
+
+### **3. Production Standard: Slot-Based Weighted Estimation Engine**
+
+Instead of counting JS bytes, production architectures (Instagram, Roblox, Twitter/X) treat the store as a **weighted slot-based cache**:
+
+1. **Fixed Capacity ($N$ Slots / $W$ Weight Units)**: Set an absolute ceiling based on target device tier (e.g., 50 weight units max for low-end mobile).
+2. **$O(1)$ Weight Scoring at API Boundary**: Calculate weight units instantly using metadata headers (`Content-Length` or image dimensions $W \times H$) when data arrives from the network:
+   $$\text{Weight} = 1 + \left\lfloor \frac{\text{Width} \times \text{Height} \times 4}{10^6} \right\rceil$$
+3. **Tiered Priority Eviction**: Evict `TRANSIENT` data first, then `CACHE` data, while protecting `CRITICAL` state.
+
+```typescript
+export type DataImportance = 'CRITICAL' | 'CACHE' | 'TRANSIENT';
+
+export interface WeightedCacheEntry<T> {
+  key: string;
+  value: T;
+  importance: DataImportance;
+  weight: number; // O(1) calculated weight score
+}
+
+export class SlotBasedWeightedStore<T> {
+  private cache = new Map<string, WeightedCacheEntry<T>>();
+  private currentWeight = 0;
+  private readonly MAX_WEIGHT_CAP = 50; // Max weight units allowed in RAM
+
+  public set(key: string, value: T, importance: DataImportance, imgDimensions?: { w: number; h: number }): void {
+    // Calculate O(1) weight score (incorporates GPU bitmap decode impact!)
+    const bitmapWeight = imgDimensions ? Math.round((imgDimensions.w * imgDimensions.h * 4) / 1000000) : 0;
+    const weight = 1 + bitmapWeight;
+
+    // Evict lowest priority items until weight budget is cleared
+    while (this.currentWeight + weight > this.MAX_WEIGHT_CAP) {
+      const evicted = this.evictLowestPriority();
+      if (!evicted && importance !== 'CRITICAL') {
+        console.warn(`[Store Cap] Denied write for key: ${key}`);
+        return;
+      }
+    }
+
+    if (this.cache.has(key)) {
+      this.currentWeight -= this.cache.get(key)!.weight;
+    }
+
+    this.cache.set(key, { key, value, importance, weight });
+    this.currentWeight += weight;
+  }
+
+  private evictLowestPriority(): boolean {
+    // Phase 1: Evict TRANSIENT items in LRU order
+    for (const [key, entry] of this.cache.entries()) {
+      if (entry.importance === 'TRANSIENT') {
+        return this.delete(key);
+      }
+    }
+    // Phase 2: Evict CACHE items in LRU order
+    for (const [key, entry] of this.cache.entries()) {
+      if (entry.importance === 'CACHE') {
+        return this.delete(key);
+      }
+    }
+    return false; // Never auto-evict CRITICAL state
+  }
+
+  private delete(key: string): boolean {
+    const entry = this.cache.get(key);
+    if (entry) {
+      this.currentWeight -= entry.weight;
+      this.cache.delete(key);
+      return true;
+    }
+    return false;
+  }
+}
+```
