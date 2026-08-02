@@ -33,8 +33,21 @@ Real 45-minute mock interview runs complete with candidate whiteboard sketch eva
 
 ---
 
+## 🏢 Industry Tech Blog Case Studies (`eng_blogs/`)
+
+Categorized technical breakdowns of production engineering blogs:
+
+- **[Roblox Tech Blog Breakdown Index](./eng_blogs/roblox/README.md)**
+  1. **[Real-Time Chat & Presence System](./eng_blogs/roblox/01_realtime_chat_and_presence.md)** (TextChatService, hybrid transport, sequence reconciliation, subway recovery).
+  2. **[Real-Time AI Moderation & Multilingual Translation](./eng_blogs/roblox/02_ai_moderation_and_translation.md)** (Sub-100ms transformer LLM, PII `###` filtering, zero-CLS layout stability).
+  3. **[Declarative UI Frameworks & Virtualized Rendering](./eng_blogs/roblox/03_ui_frameworks_and_rendering.md)** (Roact/Rodux $\rightarrow$ Fusion/Vide/Reflex, fine-grained reactivity, layout virtualization).
+  4. **[Client Memory Budgets & Frame Scheduling](./eng_blogs/roblox/04_client_performance_and_memory.md)** (Microprofiler, <30MB heap ceilings, GC pause elimination, frame scheduling).
+
+---
+
 ## 📋 Interviewer Prompt Templates (`templates/`)
 
 1. **[Master Principal Mock Interviewer Prompt](./templates/principal_mock_interviewer.md)**
 2. **[02: Roblox Chat & Messaging Prompt](./templates/02_roblox_chat_messaging_prompt.md)**
 3. **[03: Roblox Image Feed Prompt](./templates/03_roblox_image_feed_prompt.md)**
+
